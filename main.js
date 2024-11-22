@@ -136,20 +136,20 @@ async function scrapePropertyData(page, url) {
     const area = characteristicsArray.find(item => item.key.includes('m²'))?.key || 'N/A';
     const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
 
-       return {
-        name,
-        description,
-        address,
-        price: propertyPrice,
-        property_type: propertyType,
-        area,
-        energy_rating: energyRating,
-        transaction_type: transactionType,
-        latitude: propertyLatitude,
-        longitude: propertyLongitude,
-        characteristics,
-        source_url: url
-    };
+return {
+    name,
+    description,
+    address,
+    price, // Correct variable name
+    property_type: propertyType,
+    area,
+    energy_rating: energyRating,
+    transaction_type: transactionType,
+    latitude, // Correct variable name
+    longitude, // Correct variable name
+    characteristics,
+    source_url: url
+};
     } catch (error) {
         console.log(`Error scraping property data for ${url}:`, error);
         return { error: `Failed to scrape ${url}` };
