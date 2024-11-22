@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer-core');
+const puppeteerExtra = require('puppeteer-extra');
+
 const fs = require('fs');
 const xlsx = require('xlsx');
 
@@ -144,9 +146,9 @@ async function scrapePropertyData(page, url) {
 
 // Main function to scrape properties from all pages
 async function scrapePropertiesFromUrls(urls) {
-    const browser = await puppeteer.launch({
-    headless: 'new', // Run in headless mode for CI environments
-    args: ['--no-sandbox', '--disable-setuid-sandbox'], // Required for GitHub Actions
+    const browser = await puppeteerExtra.launch({
+  headless: 'new', // Correctly set headless to 'new'
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
 });
 
     const page = await browser.newPage();
