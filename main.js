@@ -248,9 +248,10 @@ function saveToExcel(data, filename) {
     const worksheet = xlsx.utils.json_to_sheet(data);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Properties');
+    const outputPath = `output/${filename}`; // Ensure file is saved in 'output'
     fs.mkdirSync('output', { recursive: true });
-    xlsx.writeFile(workbook, filename);
-    console.log(`Data saved to ${filename}`);
+    xlsx.writeFile(workbook, outputPath);
+    console.log(`Data saved to ${outputPath}`);
 }
 
 // Example usage
