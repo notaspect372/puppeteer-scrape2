@@ -194,13 +194,29 @@ async function scrapePropertiesFromUrls(urls) {
     const page = await browser.newPage();
     const allData = [];
 
-    for (const baseUrl of urls) {
+    for (let baseUrl of urls) {
         const totalPages = await getTotalPages(page, baseUrl);
         console.log(`Total number of pages for ${baseUrl}: ${totalPages}`);
 
+        let allPropertyUrls = [];
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            const pageUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${pageNum}`;
-            const propertyUrls = await getPropertyUrls(page, pageUrl);
+            // Check if the base URL contains an existing query parameter (i.e., '?')
+            let pageUrl;
+            if (baseUrl.includes('?')) {
+                // If it does, use '&page=' to append the page number
+                pageUrl = `${baseUrl}&page=${pageNum}`;
+            } else {
+                // If not, use '?page=' to start the query parameter
+                pageUrl = `${baseUrl}?page=${pageNum}`;
+            }
+
+            let propertyUrls = await getPropertyUrls(page, pageUrl);
+            console.log(propertyUrls);
+
+            allPropertyUrls = allPropertyUrls.concat(propertyUrls);
+        }
+
+        console.log(`Total number of property URLs for ${baseUrl}: ${allPropertyUrls.length}`);
 
             for (const propertyUrl of propertyUrls) {
                 const propertyData = await scrapePropertyData(page, propertyUrl);
