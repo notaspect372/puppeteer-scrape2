@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer-core');
+const puppeteerExtra = require('puppeteer-extra');
+
 const fs = require('fs');
 const xlsx = require('xlsx');
 
