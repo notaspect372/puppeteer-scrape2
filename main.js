@@ -159,14 +159,57 @@ async function scrapePropertyData(page, url) {
         const propertyLatitude = geo.latitude || 'N/A';
         const propertyLongitude = geo.longitude || 'N/A';
 
+        const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', nodes => {
+        const data = [];
+        const seen = new Set();
+        nodes.forEach(node => {
+            const label = node.querySelector('span')?.textContent.trim() || null;
+            if (label) {
+                const parts = label.split(':');
+                const key = parts[0].trim();
+                const value = parts[1] ? parts[1].trim() : 'N/A';
+                if (!seen.has(key)) {
+                    data.push({ key, value });
+                    seen.add(key);
+                }
+            }
+        });
+        return data;
+    });
+
+    const area = characteristicsArray.find(item => item.key.includes('m²'))?.key || 'N/A';
+    const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
+
+         const propertyTypeKeywords = ['Villa', 'Ejerlejlighed', 'Rækkehus', 'Fritidsbolig', 'Andelsbolig', 'Landejendom', 'Helårsgrund', 'Villalejlighed', 'Fritidsgrund', 'Husbåd'];
+    let propertyType = 'N/A';
+    for (let keyword of propertyTypeKeywords) {
+        if (name.includes(keyword) || description.includes(keyword)) {
+            propertyType = keyword;
+            break;
+        }
+    }
+        let transactionType = 'N/A';
+    try {
+        await page.waitForSelector('.text-blue-900.text-sm.font-bold.mb-2', { timeout: 0 });
+        transactionType = await page.$eval('.text-blue-900.text-sm.font-bold.mb-2', el => el.textContent.trim());
+    } catch (error) {
+        console.log('Transaction type element not found or took too long to load:', error);
+    }
+
+
+
         return {
             name,
             description,
             address,
             price: propertyPrice,
+            property_type: propertyType,
+        transaction_type: transactionType,
+            area,
             energy_rating: energyRating,
             latitude: propertyLatitude,
             longitude: propertyLongitude,
+            characteristics,
             source_url: url,
         };
     } catch (error) {
