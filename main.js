@@ -96,12 +96,14 @@ async function scrapePropertyData(page, url) {
         console.log('Address not found:', error);
     }
 
-    let energyRating = 'N/A';
-    try {
-        energyRating = await page.$eval('div[aria-describedby="tippy-tooltip-1"] svg title', el => el.textContent.trim());
-    } catch (error) {
-        console.log('Energy rating not found:', error);
-    }
+   let energyRating = 'N/A';
+try {
+    // Extract the energy rating text from the <title> tag inside the <svg> element
+    energyRating = await page.$eval('div[data-tooltipped] svg title', el => el.textContent.trim());
+} catch (error) {
+    console.log('Energy rating not found:', error);
+}
+
 
     const ldJsonData = await page.$$eval('script[type="application/ld+json"]', scripts => {
         let geo = {};
