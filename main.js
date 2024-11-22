@@ -160,26 +160,17 @@ return {
 
 // Function to save data to Excel
 function saveToExcel(data, filename) {
-    // Ensure 'output' directory exists
+    console.log('Saving data to Excel:', data.length, 'records');
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
+    const filePath = path.join(outputDir, filename);
+    console.log('Saving file to path:', filePath);
 
-    // Prepare data for saving
-    data.forEach(item => {
-        if (typeof item.characteristics === 'object') {
-            item.characteristics = JSON.stringify(item.characteristics);
-        }
-    });
-
-    // Generate Excel file
     const worksheet = xlsx.utils.json_to_sheet(data);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Properties');
-
-    // Save file in the 'output' directory
-    const filePath = path.join(outputDir, filename);
     xlsx.writeFile(workbook, filePath);
     console.log(`Data saved to ${filePath}`);
 }
