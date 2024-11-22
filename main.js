@@ -145,11 +145,9 @@ async function scrapePropertyData(page, url) {
 // Main function to scrape properties from all pages
 async function scrapePropertiesFromUrls(urls) {
     const browser = await puppeteer.launch({
-        headless: false,
-        executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        args: ['--start-maximized'],
-        defaultViewport: null
-    });
+    headless: 'new', // Run in headless mode for CI environments
+    args: ['--no-sandbox', '--disable-setuid-sandbox'], // Required for GitHub Actions
+});
 
     const page = await browser.newPage();
     const allData = [];
