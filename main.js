@@ -188,51 +188,46 @@ function saveToExcel(data, filename) {
 async function scrapePropertiesFromUrls(urls) {
     const browser = await puppeteerExtra.launch({
         headless: 'new', // Set headless mode
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
     const allData = [];
 
-    for (let baseUrl of urls) {
-        const totalPages = await getTotalPages(page, baseUrl);
-        console.log(`Total number of pages for ${baseUrl}: ${totalPages}`);
+    try {
+        for (const baseUrl of urls) {
+            const totalPages = await getTotalPages(page, baseUrl);
+            console.log(`Total number of pages for ${baseUrl}: ${totalPages}`);
 
-        let allPropertyUrls = [];
-        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            // Check if the base URL contains an existing query parameter (i.e., '?')
-            let pageUrl;
-            if (baseUrl.includes('?')) {
-                // If it does, use '&page=' to append the page number
-                pageUrl = `${baseUrl}&page=${pageNum}`;
-            } else {
-                // If not, use '?page=' to start the query parameter
-                pageUrl = `${baseUrl}?page=${pageNum}`;
+            let allPropertyUrls = [];
+            for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                // Construct the page URL
+                const pageUrl = baseUrl.includes('?')
+                    ? `${baseUrl}&page=${pageNum}`
+                    : `${baseUrl}?page=${pageNum}`;
+
+                // Fetch property URLs for the current page
+                const propertyUrls = await getPropertyUrls(page, pageUrl);
+                console.log(`Property URLs for page ${pageNum}:`, propertyUrls);
+
+                allPropertyUrls = [...allPropertyUrls, ...propertyUrls];
             }
 
-            let propertyUrls = await getPropertyUrls(page, pageUrl);
-            console.log(propertyUrls);
+            console.log(`Total number of property URLs for ${baseUrl}: ${allPropertyUrls.length}`);
 
-            allPropertyUrls = allPropertyUrls.concat(propertyUrls);
-        }
-
-        console.log(`Total number of property URLs for ${baseUrl}: ${allPropertyUrls.length}`);
-
-            for (const propertyUrl of propertyUrls) {
+            // Scrape data for each property URL
+            for (const propertyUrl of allPropertyUrls) {
                 const propertyData = await scrapePropertyData(page, propertyUrl);
                 allData.push(propertyData);
             }
+
+            // Save data to an Excel file for this base URL
+            const fileName = `${baseUrl.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`;
+            saveToExcel(allData, fileName);
         }
-
-        const fileName = `${baseUrl.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`;
-        saveToExcel(allData, fileName);
+    } catch (error) {
+        console.error('Error during scraping process:', error);
+    } finally {
+        await browser.close(); // Ensure the browser is closed in case of an error
     }
-
-    await browser.close();
 }
-
-// Example usage
-(async () => {
-    const urls = ['https://www.boligsiden.dk/tilsalg/husbaad'];
-    await scrapePropertiesFromUrls(urls);
-})();
