@@ -2,6 +2,8 @@ const puppeteer = require('puppeteer-extra');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
+const puppeteerExtra = require('puppeteer-extra');
+
 
 // Function to accept cookies
 async function acceptCookies(page) {
