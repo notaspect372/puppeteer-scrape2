@@ -98,32 +98,58 @@ async function scrapePropertyData(page, url) {
         const latitude = geo.latitude || 'N/A';
         const longitude = geo.longitude || 'N/A';
 
-        const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', nodes => {
-            return nodes.map(node => {
-                const label = node.querySelector('span')?.textContent.trim() || '';
-                const [key, value] = label.split(':').map(item => item.trim());
-                return { key, value: value || 'N/A' };
-            });
+    const propertyTypeKeywords = ['Villa', 'Ejerlejlighed', 'Rækkehus', 'Fritidsbolig', 'Andelsbolig', 'Landejendom', 'Helårsgrund', 'Villalejlighed', 'Fritidsgrund', 'Husbåd'];
+    let propertyType = 'N/A';
+    for (let keyword of propertyTypeKeywords) {
+        if (name.includes(keyword) || description.includes(keyword)) {
+            propertyType = keyword;
+            break;
+        }
+    }
+
+    let transactionType = 'N/A';
+    try {
+        await page.waitForSelector('.text-blue-900.text-sm.font-bold.mb-2', { timeout: 0 });
+        transactionType = await page.$eval('.text-blue-900.text-sm.font-bold.mb-2', el => el.textContent.trim());
+    } catch (error) {
+        console.log('Transaction type element not found or took too long to load:', error);
+    }
+
+    const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', nodes => {
+        const data = [];
+        const seen = new Set();
+        nodes.forEach(node => {
+            const label = node.querySelector('span')?.textContent.trim() || null;
+            if (label) {
+                const parts = label.split(':');
+                const key = parts[0].trim();
+                const value = parts[1] ? parts[1].trim() : 'N/A';
+                if (!seen.has(key)) {
+                    data.push({ key, value });
+                    seen.add(key);
+                }
+            }
         });
+        return data;
+    });
 
-        const area = characteristicsArray.find(item => item.key.includes('m²'))?.value || 'N/A';
-        const characteristics = characteristicsArray.reduce((acc, item) => {
-            acc[item.key] = item.value;
-            return acc;
-        }, {});
+    const area = characteristicsArray.find(item => item.key.includes('m²'))?.key || 'N/A';
+    const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
 
-        return {
-            name,
-            description,
-            address,
-            price,
-            latitude,
-            longitude,
-            energy_rating: energyRating,
-            area,
-            characteristics,
-            source_url: url
-        };
+       return {
+        name,
+        description,
+        address,
+        price: propertyPrice,
+        property_type: propertyType,
+        area,
+        energy_rating: energyRating,
+        transaction_type: transactionType,
+        latitude: propertyLatitude,
+        longitude: propertyLongitude,
+        characteristics,
+        source_url: url
+    };
     } catch (error) {
         console.log(`Error scraping property data for ${url}:`, error);
         return { error: `Failed to scrape ${url}` };
@@ -131,12 +157,27 @@ async function scrapePropertyData(page, url) {
 }
 
 // Function to save data to Excel
-function saveToExcel(data, fileName) {
-    const workbook = xlsx.utils.book_new();
+function saveToExcel(data, filename) {
+    // Ensure 'output' directory exists
+    const outputDir = path.join(__dirname, 'output');
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Prepare data for saving
+    data.forEach(item => {
+        if (typeof item.characteristics === 'object') {
+            item.characteristics = JSON.stringify(item.characteristics);
+        }
+    });
+
+    // Generate Excel file
     const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Properties');
-    const filePath = path.join(__dirname, 'output', fileName);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+    // Save file in the 'output' directory
+    const filePath = path.join(outputDir, filename);
     xlsx.writeFile(workbook, filePath);
     console.log(`Data saved to ${filePath}`);
 }
