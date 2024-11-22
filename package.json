@@ -10,7 +10,7 @@
     "puppeteer": "^19.0.0",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-stealth": "^2.7.7",
-    "xlsx": "^0.18.5", // Updated to the latest stable version for better compatibility
+    "xlsx": "^0.18.5",
     "exceljs": "^4.3.0" 
   }
 }
