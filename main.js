@@ -186,10 +186,10 @@ function saveToExcel(data, filename) {
 
 // Main function to scrape properties
 async function scrapePropertiesFromUrls(urls) {
-   const browser = await puppeteerExtra.launch({
-  headless: 'new', // Correctly set headless to 'new'
-  args: ['--no-sandbox', '--disable-setuid-sandbox']
-});
+    const browser = await puppeteerExtra.launch({
+        headless: 'new', // Set headless mode
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
     const page = await browser.newPage();
     const allData = [];
