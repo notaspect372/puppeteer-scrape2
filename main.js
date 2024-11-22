@@ -299,6 +299,6 @@ function saveToExcel(data, filename) {
 
 // Example usage
 (async () => {
-    const urls = ['https://www.boligsiden.dk/tilsalg/husbaad'];
+    const urls = ['https://www.boligsiden.dk/tilsalg/villa?priceMax=1300000'];
     await scrapePropertiesFromUrls(urls);
 })();
