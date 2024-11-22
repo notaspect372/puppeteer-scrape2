@@ -209,6 +209,7 @@ async function scrapePropertiesFromUrls(urls) {
             // Scrape data for each property URL
             for (const propertyUrl of allPropertyUrls) {
                 const propertyData = await scrapePropertyData(page, propertyUrl);
+                console.log(propertyData)
                 allData.push(propertyData);
             }
 
