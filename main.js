@@ -18,7 +18,7 @@ async function acceptCookies(page) {
 // Function to get the total number of pages
 async function getTotalPages(page, url) {
     try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
         await acceptCookies(page);
 
         let totalListingsText;
@@ -70,7 +70,7 @@ async function getPropertyUrls(page, url) {
     }
 
     try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
 
         await page.waitForSelector('div.relative.min-h-80', { timeout: 60000 });
 
@@ -103,12 +103,16 @@ async function scrapePropertyData(page, url) {
             }
         }
 
-        let description = 'N/A';
-        try {
-            description = await page.$eval('span.text-gray-600.pr-2', (el) => el.textContent.trim());
-        } catch (error) {
-            console.log('Description not found:', error);
-        }
+   let description = 'N/A';
+try {
+    description = await page.$eval('span.text-gray-600.pr-2', (el) => el.textContent.trim());
+} catch {
+    try {
+        description = await page.$eval('div.other-selector', (el) => el.textContent.trim());
+    } catch {
+        console.log('Description not found.');
+    }
+}
 
         let address = 'N/A';
         try {
@@ -220,10 +224,12 @@ async function scrapePropertyData(page, url) {
 
 // Main function to scrape properties from all pages
 async function scrapePropertiesFromUrls(urls) {
-    const browser = await puppeteerExtra.launch({
-        headless: 'new', // Correctly set headless to 'new'
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+const browser = await puppeteerExtra.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    defaultViewport: null,
+    protocolTimeout: 120000, // 120 seconds
+});
       
 
     const page = await browser.newPage();
