@@ -1,8 +1,10 @@
-const puppeteer = require('puppeteer-core');
-const puppeteerExtra = require('puppeteer-extra');
-
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const xlsx = require('xlsx');
+
+// Enable stealth mode
+puppeteer.use(StealthPlugin());
 
 // Function to accept cookies
 async function acceptCookies(page) {
@@ -27,8 +29,8 @@ async function getTotalPages(page, url) {
                 'h1.flex-1.text-blue-900.text-xl.font-black',
                 (el) => el.textContent.trim()
             );
-        } catch (error) {
-            console.log('First structure for total listings not found, trying the second structure.');
+        } catch {
+            console.log('First structure for total listings not found, trying alternative.');
         }
 
         if (!totalListingsText) {
@@ -37,20 +39,16 @@ async function getTotalPages(page, url) {
                     'h1[class*="flex-1"][class*="text-blue-900"][class*="text-xl"][class*="font-black"]',
                     (el) => el.textContent.trim()
                 );
-            } catch (error) {
-                console.log('Second structure for total listings not found either.');
+            } catch {
+                console.log('Failed to retrieve total listings information.');
+                return 0;
             }
         }
 
-        if (totalListingsText) {
-            const totalListings = parseInt(totalListingsText.replace(/\D/g, ''));
-            const totalPages = Math.ceil(totalListings / 50);
-            console.log(`Total listings found: ${totalListings}, Total pages: ${totalPages}`);
-            return totalPages;
-        } else {
-            console.log('Failed to find total listing information.');
-            return 0;
-        }
+        const totalListings = parseInt(totalListingsText.replace(/\D/g, ''), 10);
+        const totalPages = Math.ceil(totalListings / 50);
+        console.log(`Total listings found: ${totalListings}, Total pages: ${totalPages}`);
+        return totalPages;
     } catch (error) {
         console.log('Error fetching total pages:', error);
         return 0;
@@ -59,15 +57,7 @@ async function getTotalPages(page, url) {
 
 // Function to get property URLs from a single page
 async function getPropertyUrls(page, url) {
-    console.log("Fetching property URLs from:", url);
-
-    // Validate URL before navigating
-    try {
-        new URL(url); // Throws if the URL is invalid
-    } catch (error) {
-        console.error("Invalid URL:", url, error);
-        return new Set();
-    }
+    console.log(`Fetching property URLs from: ${url}`);
 
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
@@ -94,25 +84,20 @@ async function scrapePropertyData(page, url) {
         let name = 'N/A';
         try {
             name = await page.$eval('meta[property="og:title"]', (el) => el.content || 'N/A');
-        } catch (error) {
-            console.log('Meta tag for title not found. Trying <title> tag as fallback.');
+        } catch {
             try {
                 name = await page.$eval('title', (el) => el.textContent.trim());
-            } catch (fallbackError) {
-                console.log('Fallback method for title also failed:', fallbackError);
+            } catch {
+                console.log('Name not found.');
             }
         }
 
-   let description = 'N/A';
-try {
-    description = await page.$eval('span.text-gray-600.pr-2', (el) => el.textContent.trim());
-} catch {
-    try {
-        description = await page.$eval('div.other-selector', (el) => el.textContent.trim());
-    } catch {
-        console.log('Description not found.');
-    }
-}
+        let description = 'N/A';
+        try {
+            description = await page.$eval('span.text-gray-600.pr-2', (el) => el.textContent.trim());
+        } catch {
+            console.log('Description not found.');
+        }
 
         let address = 'N/A';
         try {
@@ -135,10 +120,6 @@ try {
         } catch (error) {
             console.log('Energy rating not found:', error);
         }
-
-        const price = 'N/A';
-        const latitude = 'N/A';
-        const longitude = 'N/A';
 
         const ldJsonData = await page.$$eval('script[type="application/ld+json"]', (scripts) => {
             let geo = {};
@@ -164,51 +145,27 @@ try {
         const propertyLongitude = geo.longitude || 'N/A';
 
         const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', nodes => {
-        const data = [];
-        const seen = new Set();
-        nodes.forEach(node => {
-            const label = node.querySelector('span')?.textContent.trim() || null;
-            if (label) {
-                const parts = label.split(':');
-                const key = parts[0].trim();
-                const value = parts[1] ? parts[1].trim() : 'N/A';
-                if (!seen.has(key)) {
+            const data = [];
+            nodes.forEach(node => {
+                const label = node.querySelector('span')?.textContent.trim() || null;
+                if (label) {
+                    const parts = label.split(':');
+                    const key = parts[0].trim();
+                    const value = parts[1] ? parts[1].trim() : 'N/A';
                     data.push({ key, value });
-                    seen.add(key);
                 }
-            }
+            });
+            return data;
         });
-        return data;
-    });
 
-    const area = characteristicsArray.find(item => item.key.includes('m²'))?.key || 'N/A';
-    const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
-
-         const propertyTypeKeywords = ['Villa', 'Ejerlejlighed', 'Rækkehus', 'Fritidsbolig', 'Andelsbolig', 'Landejendom', 'Helårsgrund', 'Villalejlighed', 'Fritidsgrund', 'Husbåd'];
-    let propertyType = 'N/A';
-    for (let keyword of propertyTypeKeywords) {
-        if (name.includes(keyword) || description.includes(keyword)) {
-            propertyType = keyword;
-            break;
-        }
-    }
-        let transactionType = 'N/A';
-    try {
-        await page.waitForSelector('.text-blue-900.text-sm.font-bold.mb-2', { timeout: 0 });
-        transactionType = await page.$eval('.text-blue-900.text-sm.font-bold.mb-2', el => el.textContent.trim());
-    } catch (error) {
-        console.log('Transaction type element not found or took too long to load:', error);
-    }
-
-
+        const area = characteristicsArray.find(item => item.key.includes('m²'))?.value || 'N/A';
+        const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
 
         return {
             name,
             description,
             address,
             price: propertyPrice,
-            property_type: propertyType,
-        transaction_type: transactionType,
             area,
             energy_rating: energyRating,
             latitude: propertyLatitude,
@@ -222,58 +179,32 @@ try {
     }
 }
 
-// Main function to scrape properties from all pages
+// Function to scrape properties from all pages
 async function scrapePropertiesFromUrls(urls) {
-const browser = await puppeteerExtra.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    defaultViewport: null,
-    protocolTimeout: 120000, // 120 seconds
-});
-      
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        defaultViewport: null,
+        protocolTimeout: 300000, // 5 minutes timeout
+    });
 
     const page = await browser.newPage();
     const allData = [];
 
     for (let baseUrl of urls) {
-        try {
-            new URL(baseUrl);
-        } catch (error) {
-            console.error("Invalid base URL:", baseUrl, error);
-            continue;
-        }
-
         const totalPages = await getTotalPages(page, baseUrl);
-        console.log(`Total number of pages for ${baseUrl}: ${totalPages}`);
+        console.log(`Total pages for ${baseUrl}: ${totalPages}`);
 
         let allPropertyUrls = [];
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
             const pageUrl = baseUrl.includes('?')
                 ? `${baseUrl}&page=${pageNum}`
                 : `${baseUrl}?page=${pageNum}`;
-
-            try {
-                new URL(pageUrl);
-            } catch (error) {
-                console.error("Invalid page URL:", pageUrl, error);
-                continue;
-            }
-
             const propertyUrls = await getPropertyUrls(page, pageUrl);
-            console.log(`Found ${propertyUrls.size} property URLs on page ${pageNum}`);
             allPropertyUrls = allPropertyUrls.concat([...propertyUrls]);
         }
 
-        console.log(`Total number of property URLs for ${baseUrl}: ${allPropertyUrls.length}`);
-
         for (let propertyUrl of allPropertyUrls) {
-            try {
-                new URL(propertyUrl);
-            } catch (error) {
-                console.error("Invalid property URL:", propertyUrl, error);
-                continue;
-            }
-
             const propertyData = await scrapePropertyData(page, propertyUrl);
             console.log(propertyData);
             allData.push(propertyData);
@@ -297,7 +228,7 @@ function saveToExcel(data, filename) {
     const worksheet = xlsx.utils.json_to_sheet(data);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Properties');
-    const outputPath = `output/${filename}`; // Ensure file is saved in 'output'
+    const outputPath = `output/${filename}`;
     fs.mkdirSync('output', { recursive: true });
     xlsx.writeFile(workbook, outputPath);
     console.log(`Data saved to ${outputPath}`);
