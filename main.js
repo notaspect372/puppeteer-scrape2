@@ -1,4 +1,4 @@
-const puppeteerExtra = require('puppeteer-extra');
+const puppeteer = require('puppeteer');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const xlsx = require('xlsx');
@@ -187,7 +187,7 @@ async function scrapePropertyData(browser, url) {
 
 // Function to scrape properties with 10 threads
 async function scrapePropertiesFromUrls(urls) {
- const browser = await puppeteerExtra.launch({
+ const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     defaultViewport: null,
