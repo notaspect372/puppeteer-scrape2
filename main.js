@@ -58,10 +58,8 @@ async function getTotalPages(page, url) {
 // Function to get property URLs from a single page
 async function getPropertyUrls(page, url) {
     console.log(`Fetching property URLs from: ${url}`);
-
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
-
         await page.waitForSelector('div.relative.min-h-80', { timeout: 60000 });
 
         const propertyLinks = await page.evaluate(() => {
@@ -77,8 +75,9 @@ async function getPropertyUrls(page, url) {
 }
 
 // Function to scrape data from a property page
-async function scrapePropertyData(page, url) {
+async function scrapePropertyData(browser, url) {
     try {
+        const page = await browser.newPage();
         await page.goto(url, { waitUntil: 'load', timeout: 0 });
 
         let name = 'N/A';
@@ -101,12 +100,8 @@ async function scrapePropertyData(page, url) {
 
         let address = 'N/A';
         try {
-            const street = await page.$eval('h1 span.text-lg.font-semibold', (el) =>
-                el.textContent.trim()
-            );
-            const city = await page.$eval('h1 span.text-xs.font-light', (el) =>
-                el.textContent.trim()
-            );
+            const street = await page.$eval('h1 span.text-lg.font-semibold', (el) => el.textContent.trim());
+            const city = await page.$eval('h1 span.text-xs.font-light', (el) => el.textContent.trim());
             address = `${street}, ${city}`;
         } catch (error) {
             console.log('Address not found:', error);
@@ -114,9 +109,7 @@ async function scrapePropertyData(page, url) {
 
         let energyRating = 'N/A';
         try {
-            energyRating = await page.$eval('div[data-tooltipped] svg title', (el) =>
-                el.textContent.trim()
-            );
+            energyRating = await page.$eval('div[data-tooltipped] svg title', (el) => el.textContent.trim());
         } catch (error) {
             console.log('Energy rating not found:', error);
         }
@@ -144,9 +137,9 @@ async function scrapePropertyData(page, url) {
         const propertyLatitude = geo.latitude || 'N/A';
         const propertyLongitude = geo.longitude || 'N/A';
 
-        const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', nodes => {
+        const characteristicsArray = await page.$$eval('.py-5.px-2.grid-cols-2 div', (nodes) => {
             const data = [];
-            nodes.forEach(node => {
+            nodes.forEach((node) => {
                 const label = node.querySelector('span')?.textContent.trim() || null;
                 if (label) {
                     const parts = label.split(':');
@@ -158,8 +151,10 @@ async function scrapePropertyData(page, url) {
             return data;
         });
 
-        const area = characteristicsArray.find(item => item.key.includes('m²'))?.value || 'N/A';
-        const characteristics = characteristicsArray.map(item => `${item.key}: ${item.value}`).join(', ');
+        const area = characteristicsArray.find((item) => item.key.includes('m²'))?.value || 'N/A';
+        const characteristics = characteristicsArray.map((item) => `${item.key}: ${item.value}`).join(', ');
+
+        await page.close();
 
         return {
             name,
@@ -179,48 +174,50 @@ async function scrapePropertyData(page, url) {
     }
 }
 
-// Function to scrape properties from all pages
+// Function to scrape properties with 10 threads
 async function scrapePropertiesFromUrls(urls) {
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: false,
+        executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', // Path to Microsoft Edge
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         defaultViewport: null,
-        protocolTimeout: 300000, // 5 minutes timeout
+        protocolTimeout: 300000,
     });
 
-    const page = await browser.newPage();
     const allData = [];
+    const threads = 10;
 
-    for (let baseUrl of urls) {
+    for (const baseUrl of urls) {
+        const page = await browser.newPage();
         const totalPages = await getTotalPages(page, baseUrl);
         console.log(`Total pages for ${baseUrl}: ${totalPages}`);
 
         let allPropertyUrls = [];
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            const pageUrl = baseUrl.includes('?')
-                ? `${baseUrl}&page=${pageNum}`
-                : `${baseUrl}?page=${pageNum}`;
+            const pageUrl = baseUrl.includes('?') ? `${baseUrl}&page=${pageNum}` : `${baseUrl}?page=${pageNum}`;
             const propertyUrls = await getPropertyUrls(page, pageUrl);
             allPropertyUrls = allPropertyUrls.concat([...propertyUrls]);
         }
 
-        for (let propertyUrl of allPropertyUrls) {
-            const propertyData = await scrapePropertyData(page, propertyUrl);
-            console.log(propertyData);
-            allData.push(propertyData);
+        const chunks = [];
+        for (let i = 0; i < allPropertyUrls.length; i += threads) {
+            chunks.push(allPropertyUrls.slice(i, i + threads));
         }
 
-        const fileName = sanitizeFileName(baseUrl) + '.xlsx';
-        saveToExcel(allData, fileName);
+        for (const chunk of chunks) {
+            const results = await Promise.all(chunk.map((url) => scrapePropertyData(browser, url)));
+            allData.push(...results);
+        }
+
+        await page.close();
     }
 
     await browser.close();
-    return allData;
-}
 
-// Function to sanitize the filename from the URL
-function sanitizeFileName(url) {
-    return url.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `properties_${Date.now()}.xlsx`;
+    saveToExcel(allData, fileName);
+    console.log(`Scraping completed. Data saved to ${fileName}`);
+    return allData;
 }
 
 // Function to save scraped data to an Excel file
@@ -236,6 +233,6 @@ function saveToExcel(data, filename) {
 
 // Example usage
 (async () => {
-    const urls = ['https://www.boligsiden.dk/tilsalg/ejerlejlighed'];
+    const urls = ['https://www.boligsiden.dk/tilsalg/villa?priceMin=5400000'];
     await scrapePropertiesFromUrls(urls);
 })();
