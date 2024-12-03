@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer-extra');
+const puppeteerExtra = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const xlsx = require('xlsx');
@@ -187,13 +187,11 @@ async function scrapePropertyData(browser, url) {
 
 // Function to scrape properties with 10 threads
 async function scrapePropertiesFromUrls(urls) {
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', // Path to Microsoft Edge
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        defaultViewport: null,
-        protocolTimeout: 300000,
-    });
+ const browser = await puppeteerExtra.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    defaultViewport: null,
+});
 
     const allData = [];
     const threads = 10;
