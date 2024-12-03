@@ -143,16 +143,27 @@ async function scrapePropertyData(browser, url) {
                 const label = node.querySelector('span')?.textContent.trim() || null;
                 if (label) {
                     const parts = label.split(':');
-                    const key = parts[0].trim();
-                    const value = parts[1] ? parts[1].trim() : 'N/A';
+                    const key = parts[0]?.trim() || 'Unknown';
+                    const value = parts[1]?.trim() || 'N/A';
                     data.push({ key, value });
                 }
             });
             return data;
         });
-
-        const area = characteristicsArray.find((item) => item.key.includes('m²'))?.value || 'N/A';
-        const characteristics = characteristicsArray.map((item) => `${item.key}: ${item.value}`).join(', ');
+        
+        // Filter out duplicate key-value pairs
+        const uniqueCharacteristics = Array.from(
+            new Map(characteristicsArray.map((item) => [item.key, item])).values()
+        );
+        
+        // Extract the area specifically related to 'm²'
+        const area = uniqueCharacteristics
+            .find((item) => item.key.toLowerCase().includes('m²'))?.key || 'N/A';
+        
+        // Create a properly formatted string of characteristics
+        const characteristics = uniqueCharacteristics
+            .map((item) => `${item.key}: ${item.value}`)
+            .join(', ');
 
         await page.close();
 
@@ -177,7 +188,7 @@ async function scrapePropertyData(browser, url) {
 // Function to scrape properties with 10 threads
 async function scrapePropertiesFromUrls(urls) {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: 'new',
         executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', // Path to Microsoft Edge
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         defaultViewport: null,
@@ -206,6 +217,7 @@ async function scrapePropertiesFromUrls(urls) {
 
         for (const chunk of chunks) {
             const results = await Promise.all(chunk.map((url) => scrapePropertyData(browser, url)));
+            console.log(results)
             allData.push(...results);
         }
 
