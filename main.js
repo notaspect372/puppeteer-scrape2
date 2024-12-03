@@ -190,7 +190,7 @@ async function scrapePropertiesFromUrls(urls) {
  const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    defaultViewport: null,
+    protocolTimeout: 120000, // Increase timeout to 2 minutes
 });
 
     const allData = [];
