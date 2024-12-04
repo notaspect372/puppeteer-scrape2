@@ -112,7 +112,7 @@ async function scrapePropertyData(browser, url) {
             source_url: url,
         };
     } catch (error) {
-        console.error('Error scraping property data:', error);
+        console.error('Error scraping property data:', error,url);
         return {};
     }
 }
